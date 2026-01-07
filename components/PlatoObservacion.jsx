@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { View, StyleSheet, Text, TextInput } from "react-native";
 import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
 import { faTrash } from "@fortawesome/free-solid-svg-icons/faTrash";
@@ -6,10 +6,14 @@ import Toast from "react-native-toast-message";
 import { BotonPresionable } from "./BotonPresionable";
 let nextId = 0; // id único para cada observación
 
-export function PlatoObservacion({ cantTotalPlato }) {
+export function PlatoObservacion({ cantTotalPlato, onObservacionesChange }) {
   const [observaciones, setObservaciones] = useState([
     { id: nextId++, texto: "", cantidad: 1 },
   ]);
+
+  useEffect(() => {
+    onObservacionesChange(observaciones);
+  }, [observaciones]);
 
   const agregarObservacion = () => {
     // 1. Calcular el total ACTUAL de todas las observaciones

@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
+import Toast from "react-native-toast-message";
 import {
+  Alert,
   FlatList,
   TextInput,
   StyleSheet,
@@ -10,18 +12,22 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
 } from "react-native";
+
 import { SafeAreaView } from "react-native-safe-area-context";
 import { getMenuDia } from "../lib/menu_dia";
 import { PlatoCard } from "./Plato";
 import { BotonPresionable } from "./BotonPresionable";
 
 export function Main() {
-  const [platos, setMenu] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [pedidoKey, setPedidoKey] = useState(0); // state to force re-render when data is send
+  const [platos, setPlatos] = useState([]); // data retrieved
+  const [loading, setLoading] = useState(true); // loading state
+  const [error, setError] = useState(false); // error state
+  const [pedido, setPedido] = useState({}); // pedido data to register
+  const [numMesa, setNumMesa] = useState(""); // mesa data to register
 
+  //execute the app is open first time
   useEffect(() => {
     cargarPlatos();
   }, []);
@@ -39,7 +45,7 @@ export function Main() {
     getMenuDia()
       .then((platos) => {
         clearTimeout(timeout);
-        setMenu(platos);
+        setPlatos(platos);
         setLoading(false);
       })
       .catch((err) => {
@@ -47,6 +53,86 @@ export function Main() {
         setLoading(false);
         setError(true);
       });
+  };
+
+  //update when quantity is set to 0
+  const handlePlatoChange = (platoId, datoPlato) => {
+    setPedido((prev) => {
+      if (datoPlato === null) {
+        const { [platoId]: _, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [platoId]: datoPlato };
+    });
+  };
+
+  // send data to endpoint
+  const enviarDatos = async () => {
+    if (!numMesa) {
+      Toast.show({
+        type: "error",
+        text1: "Mesa requerida",
+        text2: "Ingresa el número de mesa",
+      });
+      return;
+    }
+
+    // Filtrar platos con cantidad > 0
+    const platosValidos = Object.values(pedido).filter(
+      (plato) => plato.cantidad > 0
+    );
+
+    if (platosValidos.length === 0) {
+      Toast.show({
+        type: "error",
+        text1: "Sin platos",
+        text2: "Agrega al menos un plato",
+      });
+      return;
+    }
+
+    const datosEnviar = {
+      mesa: numMesa,
+      items: platosValidos.map((plato) => ({
+        ID: plato.id,
+        Nombre: plato.nombre,
+        Cantidad: plato.cantidad,
+        Observaciones: plato.observaciones
+          .filter((obs) => obs.texto.trim()) //filter obs with empty text
+          .map((obs) => `${obs.cantidad}x${obs.texto}`)
+          .join(", "),
+      })),
+    };
+    console.log("Enviando s:", JSON.stringify(datosEnviar, null, 2));
+
+    //wrap all in an alert
+    Alert.alert(
+      "Confirmar pedido",
+      `Mesa ${numMesa}\n${platosValidos.length} platos`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Enviar",
+          onPress: async () => {
+            const result = await enviarDatos(platosValidos);
+            if (result?.success) {
+              Toast.show({
+                type: "success",
+                text1: "Pedido enviado",
+              });
+              setNumMesa("");
+              setPedido({});
+              setPedidoKey((k) => k + 1); // force to recreate the components
+            } else {
+              Toast.show({
+                type: "error",
+                text1: "Error en el registro del pedido",
+              });
+            }
+          },
+        },
+      ]
+    );
   };
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
@@ -72,15 +158,25 @@ export function Main() {
             style={{
               flexDirection: "row",
               alignItems: "center",
+              justifyContent: "space-between",
               marginTop: 0,
             }}
           >
             <Text style={styles.table}>Mesa</Text>
             <TextInput
               placeholder="#"
+              value={numMesa}
+              onChangeText={setNumMesa}
               style={styles.num_table}
               keyboardType="numeric"
             />
+            <BotonPresionable onPress={enviarDatos} style={styles.btn_enviar}>
+              <Text
+                style={{ color: "#fff", fontStyle: "italic", fontSize: 14 }}
+              >
+                REGISTRAR MENU
+              </Text>
+            </BotonPresionable>
           </View>
 
           {/* Platos */}
@@ -98,9 +194,15 @@ export function Main() {
             </View>
           ) : (
             <FlatList
+              key={pedidoKey}
               data={platos}
               keyExtractor={(item) => item.id}
-              renderItem={({ item }) => <PlatoCard plato={item} />}
+              renderItem={({ item }) => (
+                <PlatoCard
+                  plato={item}
+                  onPlatoChange={(data) => handlePlatoChange(item.id, data)}
+                />
+              )}
               scrollEnabled={false} // si quieres que ScrollView maneje el scroll
               style={styles.flatlist}
             />
@@ -140,6 +242,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#c22424ff",
     marginBottom: 15,
+  },
+  btn_enviar: {
+    backgroundColor: "#28a745",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
   },
   btn_reintentar: {
     backgroundColor: "#007AFF",

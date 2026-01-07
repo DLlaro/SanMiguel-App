@@ -1,11 +1,25 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { StyleSheet, View, Text, Switch } from "react-native";
 import { PlatoObservacion } from "./PlatoObservacion";
 import { BotonPresionable } from "./BotonPresionable";
 
-export function PlatoCard({ plato }) {
+export function PlatoCard({ plato, onPlatoChange }) {
   const [cantidad, setCantidad] = useState(0);
   const [marcarObservacion, setMarcarObservacion] = useState(false); // checkbox
+  const [observaciones, setObservaciones] = useState([]);
+
+  useEffect(() => {
+    if (cantidad > 0) {
+      onPlatoChange({
+        id: plato.id,
+        nombre: plato.nombre,
+        cantidad,
+        observaciones: marcarObservacion ? observaciones : [],
+      });
+    } else {
+      onPlatoChange(null);
+    }
+  }, [cantidad, observaciones, marcarObservacion]);
 
   const disminuirCantidad = (id) => {
     const nuevo = Math.max(cantidad - 1, 0);
@@ -34,7 +48,7 @@ export function PlatoCard({ plato }) {
         }}
       >
         <Text style={[styles.texto, cantidad === 0 && styles.txt_disabled]}>
-          {plato.plato}
+          {plato.nombre}
         </Text>
 
         {/* Contador */}
@@ -75,7 +89,12 @@ export function PlatoCard({ plato }) {
       </View>
 
       {/* TextInput solo si el checkbox está activo */}
-      {marcarObservacion && <PlatoObservacion cantTotalPlato={cantidad} />}
+      {marcarObservacion && (
+        <PlatoObservacion
+          cantTotalPlato={cantidad}
+          onObservacionesChange={setObservaciones}
+        />
+      )}
     </View>
   );
 }
