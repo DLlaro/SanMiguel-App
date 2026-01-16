@@ -47,9 +47,27 @@ export function PlatoCard({ plato, onPlatoChange }) {
           justifyContent: "space-between",
         }}
       >
-        <Text style={[styles.texto, cantidad === 0 && styles.txt_disabled]}>
-          {plato.nombre}
-        </Text>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            width: "45%",
+          }}
+        >
+          <Text style={[styles.texto, cantidad === 0 && styles.txt_disabled]}>
+            {plato.nombre}
+          </Text>
+          <Text
+            style={[
+              styles.cantDisponible,
+              plato.cantidad === 0 && styles.cantNoDisponible,
+              cantidad === 0 && styles.txt_disabled,
+            ]}
+          >
+            {plato.cantidad}
+          </Text>
+        </View>
 
         {/* Contador */}
         <View
@@ -125,8 +143,18 @@ const styles = StyleSheet.create({
     marginRight: 10,
     marginBottom: 10,
     fontSize: 18,
-    maxWidth: "40%",
+    width: "85%",
     fontWeight: "bold",
+  },
+  cantDisponible: {
+    fontSize: 15,
+    width: "15%",
+    color: "rgb(132, 224, 132)",
+  },
+  cantNoDisponible: {
+    fontSize: 17,
+    width: "15%",
+    color: "rgb(255,0,0)",
   },
   switch: {
     marginRight: 15,

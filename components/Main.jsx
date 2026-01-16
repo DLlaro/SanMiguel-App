@@ -15,9 +15,16 @@ import {
 } from "react-native";
 
 import { SafeAreaView } from "react-native-safe-area-context";
-import { getMenuDia } from "../lib/menu_dia";
+import {
+  getMenuDia,
+  checkAndUpdateQuantity,
+  getLastId,
+  enviarPedido,
+} from "../lib/menu_dia";
 import { PlatoCard } from "./Plato";
 import { BotonPresionable } from "./BotonPresionable";
+import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
+import { faArrowRotateRight } from "@fortawesome/free-solid-svg-icons/faArrowRotateRight";
 
 export function Main() {
   const [pedidoKey, setPedidoKey] = useState(0); // state to force re-render when data is send
@@ -77,10 +84,10 @@ export function Main() {
       return;
     }
 
-    // Filtrar platos con cantidad > 0
-    const platosValidos = Object.values(pedido).filter(
-      (plato) => plato.cantidad > 0
-    );
+    // Filter dishes 0 quantity
+    const platosValidos = Object.values(pedido)
+      .filter((plato) => plato.cantidad > 0)
+      .sort((a, b) => a.id.localeCompare(b.id)); // compare dishes.id and sort
 
     if (platosValidos.length === 0) {
       Toast.show({
@@ -91,7 +98,10 @@ export function Main() {
       return;
     }
 
+    const lastId = (await getLastId()) + 1;
+    console.log(lastId);
     const datosEnviar = {
+      idPedido: lastId,
       mesa: numMesa,
       items: platosValidos.map((plato) => ({
         ID: plato.id,
@@ -99,11 +109,10 @@ export function Main() {
         Cantidad: plato.cantidad,
         Observaciones: plato.observaciones
           .filter((obs) => obs.texto.trim()) //filter obs with empty text
-          .map((obs) => `${obs.cantidad}x${obs.texto}`)
+          .map((obs) => `${obs.cantidad}x ${obs.texto}`)
           .join(", "),
       })),
     };
-    console.log("Enviando s:", JSON.stringify(datosEnviar, null, 2));
 
     //wrap all in an alert
     Alert.alert(
@@ -114,7 +123,27 @@ export function Main() {
         {
           text: "Enviar",
           onPress: async () => {
-            const result = await enviarDatos(platosValidos);
+            console.log("Enviando s:", JSON.stringify(datosEnviar, null, 2));
+            // Check quantities
+            const resultado = await checkAndUpdateQuantity(platosValidos);
+            console.log(resultado);
+            if (!resultado.success) {
+              Toast.show({
+                type: "error",
+                text1: "Sin disponibilidad",
+                text2: resultado.mensaje,
+              });
+              return;
+            }
+
+            // Si llegamos aquí, todo salió bien
+            Toast.show({
+              type: "success",
+              text1: "Pedido registrado",
+              text2: "Cantidades actualizadas correctamente",
+            });
+            const result = await enviarPedido(datosEnviar);
+
             if (result?.success) {
               Toast.show({
                 type: "success",
@@ -123,6 +152,7 @@ export function Main() {
               setNumMesa("");
               setPedido({});
               setPedidoKey((k) => k + 1); // force to recreate the components
+              cargarPlatos();
             } else {
               Toast.show({
                 type: "error",
@@ -134,6 +164,7 @@ export function Main() {
       ]
     );
   };
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
       <KeyboardAvoidingView
@@ -146,11 +177,21 @@ export function Main() {
             <Text style={styles.title}>Tomar pedido</Text>
 
             {/* Logo */}
-            <Image
+            {/*<Image
               source={require("../assets/stc2.png")}
               style={{ width: 200, height: 50, alignSelf: "center" }}
               resizeMode="contain"
-            />
+            />*/}
+            <BotonPresionable
+              onPress={cargarPlatos}
+              style={styles.btn_reintentar}
+            >
+              <FontAwesomeIcon
+                icon={faArrowRotateRight}
+                size={20}
+                color="#fff"
+              />
+            </BotonPresionable>
           </View>
 
           {/* Número de mesa */}
@@ -168,7 +209,6 @@ export function Main() {
               value={numMesa}
               onChangeText={setNumMesa}
               style={styles.num_table}
-              keyboardType="numeric"
             />
             <BotonPresionable onPress={enviarDatos} style={styles.btn_enviar}>
               <Text
@@ -217,6 +257,7 @@ const styles = StyleSheet.create({
   rowContainer: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
   },
   title: {
     fontSize: 24,
