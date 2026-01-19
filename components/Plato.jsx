@@ -13,6 +13,7 @@ export function PlatoCard({ plato, onPlatoChange }) {
       onPlatoChange({
         id: plato.id,
         nombre: plato.nombre,
+        tipo: plato.tipo,
         cantidad,
         observaciones: marcarObservacion ? observaciones : [],
       });

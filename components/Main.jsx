@@ -33,12 +33,25 @@ export function Main() {
   const [error, setError] = useState(false); // error state
   const [pedido, setPedido] = useState({}); // pedido data to register
   const [numMesa, setNumMesa] = useState(""); // mesa data to register
+  const [numTipo, setNumTipo] = useState({});
 
   //execute the app is open first time
   useEffect(() => {
     cargarPlatos();
   }, []);
+  // Actualizar contador de tipos cuando cambie el pedido
+  useEffect(() => {
+    const nuevoNumTipo = {};
 
+    Object.values(pedido).forEach((item) => {
+      if (item && item.tipo && item.cantidad > 0) {
+        nuevoNumTipo[item.tipo] =
+          (nuevoNumTipo[item.tipo] || 0) + item.cantidad;
+      }
+    });
+
+    setNumTipo(nuevoNumTipo);
+  }, [pedido]);
   const cargarPlatos = () => {
     setLoading(true);
     setError(false);
@@ -106,6 +119,7 @@ export function Main() {
       items: platosValidos.map((plato) => ({
         ID: plato.id,
         Nombre: plato.nombre,
+        Tipo: plato.tipo,
         Cantidad: plato.cantidad,
         Observaciones: plato.observaciones
           .filter((obs) => obs.texto.trim()) //filter obs with empty text
@@ -125,7 +139,10 @@ export function Main() {
           onPress: async () => {
             console.log("Enviando s:", JSON.stringify(datosEnviar, null, 2));
             // Check quantities
-            const resultado = await checkAndUpdateQuantity(platosValidos);
+            const resultado = await checkAndUpdateQuantity(
+              platos,
+              platosValidos
+            );
             console.log(resultado);
             if (!resultado.success) {
               Toast.show({
@@ -237,13 +254,23 @@ export function Main() {
               key={pedidoKey}
               data={platos}
               keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <PlatoCard
-                  plato={item}
-                  onPlatoChange={(data) => handlePlatoChange(item.id, data)}
-                />
+              renderItem={({ item, index }) => (
+                <>
+                  {(index === 0 || platos[index - 1].tipo !== item.tipo) && (
+                    <View style={styles.separadorContainer}>
+                      <Text style={styles.tipoTexto}>
+                        {item.tipo.toUpperCase()}: {numTipo[item.tipo] || 0}
+                      </Text>
+                      <View style={styles.lineaSeparador} />
+                    </View>
+                  )}
+                  <PlatoCard
+                    plato={item}
+                    onPlatoChange={(data) => handlePlatoChange(item.id, data)}
+                  />
+                </>
               )}
-              scrollEnabled={false} // si quieres que ScrollView maneje el scroll
+              scrollEnabled={false}
               style={styles.flatlist}
             />
           )}
@@ -303,5 +330,15 @@ const styles = StyleSheet.create({
   },
   flatlist: {
     marginTop: 20,
+  },
+  tipoTexto: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#3ec5fa",
+    marginBottom: 8,
+  },
+  lineaSeparador: {
+    height: 2,
+    backgroundColor: "#3ec5fa",
   },
 });
